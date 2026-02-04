@@ -1,0 +1,226 @@
+local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/mxxme-dev/gui-lib/refs/heads/main/model1.lua"))()
+local window = library:createwindow("BartVsHomer", "BartVsHomer")
+
+local visualsTab = window:addtab("Visuals")
+local teleportTab = window:addtab("Teleports")
+local homerTab = window:addtab("Homer")
+local bartTab = window:addtab("Bart")
+local perfTab = window:addtab("Performance")
+local miscTab = window:addtab("Misc")
+
+local groupId = 35649718
+local folderName = "BartVsHomer_ESP"
+local espSettings = {All = false, Enemy = false, Homer = false, Bart = false, TeamColor = false, StaticColor = Color3.fromRGB(255, 0, 0)}
+local bartAutoLobby = false
+local modDetect = false
+
+local function checkMod(player)
+    if not modDetect then return end
+    if player:IsInGroup(groupId) then
+        local rank = player:GetRoleInGroup(groupId)
+        if rank:lower() ~= "welcome" then
+            game.Players.LocalPlayer:Kick("possible moderator joined: " .. player.Name .. " (" .. rank .. ")")
+        end
+    end
+end
+
+local function getTargetColor(player)
+    if espSettings.TeamColor and player.Team then return player.TeamColor.Color end
+    return espSettings.StaticColor
+end
+
+local function shouldHighlight(player)
+    if player == game.Players.LocalPlayer then return false end
+    if espSettings.All then return true end
+    local myTeam = game.Players.LocalPlayer.Team
+    local pTeam = player.Team
+    local pTeamName = pTeam and pTeam.Name or ""
+    if espSettings.Enemy and pTeam ~= myTeam then return true end
+    if espSettings.Homer and pTeamName == "Homer" then return true end
+    if espSettings.Bart and pTeamName == "Bart" then return true end
+    return false
+end
+
+local function updateESP()
+    local coreGui = game:GetService("CoreGui")
+    local container = coreGui:FindFirstChild(folderName) or Instance.new("Folder", coreGui)
+    container.Name = folderName
+    for _, player in ipairs(game.Players:GetPlayers()) do
+        if player == game.Players.LocalPlayer then continue end
+        local highlight = container:FindFirstChild(player.Name)
+        if shouldHighlight(player) and player.Character then
+            if not highlight then
+                highlight = Instance.new("Highlight")
+                highlight.Name = player.Name
+                highlight.Parent = container
+            end
+            highlight.Adornee = player.Character
+            highlight.FillColor = getTargetColor(player)
+            highlight.FillTransparency = 0.5
+            highlight.OutlineColor = Color3.new(1, 1, 1)
+        else
+            if highlight then highlight:Destroy() end
+        end
+    end
+end
+
+local function tp(cframe)
+    local char = game.Players.LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        char.HumanoidRootPart.CFrame = cframe
+    end
+end
+
+local function getMapSpawn()
+    local mapFolder = workspace:FindFirstChild("map")
+    local currentMap = mapFolder and mapFolder:FindFirstChildOfClass("Model")
+    local spawns = currentMap and currentMap:FindFirstChild("spawns")
+    return spawns and (spawns:FindFirstChild("spawn") or spawns:FindFirstChildOfClass("BasePart"))
+end
+
+local function goLobby()
+    local rand = math.random(1, 8)
+    local lobbySpawn = workspace.lobbyCage.spawns:FindFirstChild("spawn" .. rand).spawn
+    if lobbySpawn then tp(lobbySpawn.CFrame + Vector3.new(0, 3, 0)) end
+end
+
+local function winLogic(targetTeamName)
+    local lp = game.Players.LocalPlayer
+    if not lp.Team or lp.Team.Name:lower() == targetTeamName:lower() then 
+        window.notify("Error", "You are not on the correct team to use this!", 2, "error")
+        return 
+    end
+
+    local oldPos = lp.Character.HumanoidRootPart.CFrame
+    local function getTargets()
+        local targets = {}
+        for _, p in ipairs(game.Players:GetPlayers()) do
+            if p.Team and p.Team.Name == targetTeamName and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                table.insert(targets, p)
+            end
+        end
+        return targets
+    end
+    
+    window.notify("System", "Starting " .. targetTeamName .. " cleanup...", 2, "info")
+    repeat
+        local targets = getTargets()
+        if #targets == 0 then break end
+        for _, target in ipairs(targets) do
+            if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+                tp(target.Character.HumanoidRootPart.CFrame)
+                task.wait(0.5)
+            end
+        end
+        task.wait(1.5)
+    until #getTargets() == 0
+    
+    local ms = getMapSpawn()
+    tp(ms and ms.CFrame or oldPos)
+    window.notify("System", "All " .. targetTeamName .. "s eliminated!", 3, "success")
+end
+
+visualsTab:addtoggle("ESP All", false, function(state) espSettings.All = state end)
+visualsTab:addtoggle("ESP Enemies", false, function(state) espSettings.Enemy = state end)
+visualsTab:addtoggle("ESP Homer Team", false, function(state) espSettings.Homer = state end)
+visualsTab:addtoggle("ESP Bart Team", false, function(state) espSettings.Bart = state end)
+visualsTab:addtoggle("Use Team Color", false, function(state) espSettings.TeamColor = state end)
+
+teleportTab:addbutton("Lobby", goLobby)
+teleportTab:addbutton("Current Map Spawn", function() 
+    local s = getMapSpawn()
+    if s then tp(s.CFrame + Vector3.new(0, 3, 0)) end
+end)
+
+homerTab:addbutton("Win (Target Bart)", function() winLogic("Bart") end)
+local autoHomer = false
+homerTab:addtoggle("AutoWin", false, function(state)
+    autoHomer = state
+    while autoHomer do
+        local p = game.Players.LocalPlayer
+        if p.Team and p.Team.Name == "Homer" then
+            task.wait(10)
+            if autoHomer then winLogic("Bart") end
+        end
+        task.wait(1)
+    end
+end)
+
+bartTab:addbutton("Win (Target Homer)", function() winLogic("Homer") end)
+bartTab:addtoggle("Auto Lobby on Bart", false, function(state) bartAutoLobby = state end)
+
+game.Players.LocalPlayer:GetPropertyChangedSignal("Team"):Connect(function()
+    local team = game.Players.LocalPlayer.Team
+    if bartAutoLobby and team and team.Name == "Bart" then
+        window.notify("Bart", "Auto-teleporting to Lobby", 2, "info")
+        goLobby()
+    end
+end)
+
+perfTab:addtoggle("Disable Rendering", false, function(state)
+    game:GetService("RunService"):Set3dRenderingEnabled(not state)
+end)
+
+perfTab:addtoggle("Disable Textures", false, function(state)
+    for _, v in pairs(game:GetDescendants()) do
+        if v:IsA("Texture") or v:IsA("Decal") then v.Transparency = state and 1 or 0 end
+    end
+end)
+
+perfTab:addtoggle("Disable Meshes", false, function(state)
+    for _, v in pairs(game:GetDescendants()) do
+        if v:IsA("MeshPart") or v:IsA("SpecialMesh") then
+            if state then
+                if v:IsA("MeshPart") then v.Transparency = 1 else v.MeshId = "" end
+            else
+                if v:IsA("MeshPart") then v.Transparency = 0 end
+            end
+        end
+    end
+end)
+
+miscTab:addslider("Walk Speed", 16, 200, 16, function(v)
+    local char = game.Players.LocalPlayer.Character
+    if char and char:FindFirstChild("Humanoid") then char.Humanoid.WalkSpeed = v end
+end)
+
+miscTab:addslider("Jump Power", 50, 300, 50, function(v)
+    local char = game.Players.LocalPlayer.Character
+    if char and char:FindFirstChild("Humanoid") then 
+        char.Humanoid.UseJumpPower = true
+        char.Humanoid.JumpPower = v 
+    end
+end)
+
+miscTab:addbutton("Rejoin", function()
+    game:GetService("TeleportService"):Teleport(game.PlaceId, game.Players.LocalPlayer)
+end)
+
+miscTab:addbutton("Server Hop", function()
+    local Http = game:GetService("HttpService")
+    local TPS = game:GetService("TeleportService")
+    local Api = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Desc&limit=100"
+    local function Next()
+        local res = game:HttpGet(Api)
+        local data = Http:JSONDecode(res)
+        for _, s in pairs(data.data) do
+            if s.playing < s.maxPlayers and s.id ~= game.JobId then
+                TPS:TeleportToPlaceInstance(game.PlaceId, s.id, game.Players.LocalPlayer)
+                break
+            end
+        end
+    end
+    Next()
+end)
+
+miscTab:addtoggle("Mod Detector", false, function(state) 
+    modDetect = state 
+    if state then for _, p in ipairs(game.Players:GetPlayers()) do checkMod(p) end end
+end)
+
+game.Players.PlayerAdded:Connect(checkMod)
+game:GetService("RunService").Heartbeat:Connect(updateESP)
+game.Players.PlayerRemoving:Connect(function(player)
+    local container = game:GetService("CoreGui"):FindFirstChild(folderName)
+    if container and container:FindFirstChild(player.Name) then container[player.Name]:Destroy() end
+end)
