@@ -4,6 +4,7 @@ function library:createwindow(title)
     local screen = Instance.new("ScreenGui")
     screen.Name = title
     screen.ResetOnSpawn = false
+    screen.IgnoreGuiInset = true
     
     local success, err = pcall(function()
         screen.Parent = game:GetService("CoreGui")
@@ -28,6 +29,20 @@ function library:createwindow(title)
     main.Active = true
     main.Draggable = true
     main.Parent = screen
+    
+    local scale = Instance.new("UIScale")
+    scale.Parent = main
+    
+    local function updateScale()
+        local viewport = workspace.CurrentCamera.ViewportSize
+        local minDimension = math.min(viewport.X, viewport.Y)
+        local baseSize = 800
+        local scaleFactor = math.clamp(minDimension / baseSize, 0.6, 1.2)
+        scale.Scale = scaleFactor
+    end
+    
+    updateScale()
+    workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScale)
     
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 8)
@@ -54,6 +69,7 @@ function library:createwindow(title)
     titletext.TextSize = 16
     titletext.Font = Enum.Font.GothamBold
     titletext.TextXAlignment = Enum.TextXAlignment.Left
+    titletext.TextScaled = false
     titletext.Parent = titlebar
     
     local tabcontainer = Instance.new("Frame")
@@ -109,6 +125,7 @@ function library:createwindow(title)
         tab.TextSize = 14
         tab.Font = Enum.Font.Gotham
         tab.AutoButtonColor = false
+        tab.TextScaled = false
         tab.Parent = self.tabcontainer
         
         local tabcorner = Instance.new("UICorner")
@@ -168,6 +185,7 @@ function library:createwindow(title)
             button.TextSize = 13
             button.Font = Enum.Font.Gotham
             button.AutoButtonColor = false
+            button.TextScaled = false
             button.Parent = self.content
             
             local buttoncorner = Instance.new("UICorner")
@@ -210,6 +228,7 @@ function library:createwindow(title)
             label.TextSize = 13
             label.Font = Enum.Font.Gotham
             label.TextXAlignment = Enum.TextXAlignment.Left
+            label.TextScaled = false
             label.Parent = toggle
             
             local state = default or false
@@ -269,6 +288,7 @@ function library:createwindow(title)
             label.TextSize = 13
             label.Font = Enum.Font.Gotham
             label.TextXAlignment = Enum.TextXAlignment.Left
+            label.TextScaled = false
             label.Parent = slider
             
             local value = default or min
@@ -282,24 +302,27 @@ function library:createwindow(title)
             valuelabel.TextSize = 12
             valuelabel.Font = Enum.Font.Gotham
             valuelabel.TextXAlignment = Enum.TextXAlignment.Right
+            valuelabel.TextScaled = false
             valuelabel.Parent = slider
             
-            local track = Instance.new("Frame")
-            track.Size = UDim2.new(1, -20, 0, 4)
-            track.Position = UDim2.new(0, 10, 1, -12)
-            track.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-            track.BorderSizePixel = 0
-            track.Parent = slider
+            local trackbg = Instance.new("TextButton")
+            trackbg.Size = UDim2.new(1, -20, 0, 4)
+            trackbg.Position = UDim2.new(0, 10, 1, -12)
+            trackbg.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+            trackbg.BorderSizePixel = 0
+            trackbg.Text = ""
+            trackbg.AutoButtonColor = false
+            trackbg.Parent = slider
             
             local trackcorner = Instance.new("UICorner")
             trackcorner.CornerRadius = UDim.new(1, 0)
-            trackcorner.Parent = track
+            trackcorner.Parent = trackbg
             
             local fill = Instance.new("Frame")
             fill.Size = UDim2.new((value - min) / (max - min), 0, 1, 0)
             fill.BackgroundColor3 = Color3.fromRGB(60, 170, 80)
             fill.BorderSizePixel = 0
-            fill.Parent = track
+            fill.Parent = trackbg
             
             local fillcorner = Instance.new("UICorner")
             fillcorner.CornerRadius = UDim.new(1, 0)
@@ -310,37 +333,41 @@ function library:createwindow(title)
             handle.Position = UDim2.new((value - min) / (max - min), -6, 0.5, -6)
             handle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
             handle.BorderSizePixel = 0
-            handle.Parent = track
+            handle.Parent = trackbg
             
             local handlecorner = Instance.new("UICorner")
             handlecorner.CornerRadius = UDim.new(1, 0)
             handlecorner.Parent = handle
             
             local dragging = false
+            local UserInputService = game:GetService("UserInputService")
             
-            handle.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    dragging = true
+            local function updateSlider(input)
+                local percent = math.clamp((input.Position.X - trackbg.AbsolutePosition.X) / trackbg.AbsoluteSize.X, 0, 1)
+                value = math.floor(min + (max - min) * percent)
+                
+                fill.Size = UDim2.new(percent, 0, 1, 0)
+                handle.Position = UDim2.new(percent, -6, 0.5, -6)
+                valuelabel.Text = tostring(value)
+                
+                pcall(callback, value)
+            end
+            
+            trackbg.MouseButton1Down:Connect(function()
+                dragging = true
+                local mouse = game:GetService("Players").LocalPlayer:GetMouse()
+                updateSlider({Position = Vector2.new(mouse.X, mouse.Y)})
+            end)
+            
+            UserInputService.InputChanged:Connect(function(input)
+                if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                    updateSlider(input)
                 end
             end)
             
-            handle.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            UserInputService.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                     dragging = false
-                end
-            end)
-            
-            game:GetService("UserInputService").InputChanged:Connect(function(input)
-                if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-                    local mouse = game:GetService("Players").LocalPlayer:GetMouse()
-                    local percent = math.clamp((mouse.X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
-                    value = math.floor(min + (max - min) * percent)
-                    
-                    fill.Size = UDim2.new(percent, 0, 1, 0)
-                    handle.Position = UDim2.new(percent, -6, 0.5, -6)
-                    valuelabel.Text = tostring(value)
-                    
-                    pcall(callback, value)
                 end
             end)
             
@@ -368,28 +395,25 @@ function library:createwindow(title)
             label.TextSize = 13
             label.Font = Enum.Font.Gotham
             label.TextXAlignment = Enum.TextXAlignment.Left
+            label.TextScaled = false
             label.Parent = picker
             
             local color = default or Color3.fromRGB(255, 255, 255)
             
-            local colorbox = Instance.new("Frame")
+            local colorbox = Instance.new("TextButton")
             colorbox.Size = UDim2.new(0, 30, 0, 20)
             colorbox.Position = UDim2.new(1, -40, 0.5, -10)
             colorbox.BackgroundColor3 = color
             colorbox.BorderSizePixel = 0
+            colorbox.Text = ""
+            colorbox.AutoButtonColor = false
             colorbox.Parent = picker
             
             local colorboxcorner = Instance.new("UICorner")
             colorboxcorner.CornerRadius = UDim.new(0, 4)
             colorboxcorner.Parent = colorbox
             
-            local button = Instance.new("TextButton")
-            button.Size = UDim2.new(1, 0, 1, 0)
-            button.BackgroundTransparency = 1
-            button.Text = ""
-            button.Parent = picker
-            
-            button.MouseButton1Click:Connect(function()
+            colorbox.MouseButton1Click:Connect(function()
                 pcall(callback, color)
             end)
             
@@ -403,6 +427,8 @@ function library:createwindow(title)
             dropdown.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
             dropdown.BorderSizePixel = 0
             dropdown.Parent = self.content
+            dropdown.ClipsDescendants = false
+            dropdown.ZIndex = 10
             
             local dropdowncorner = Instance.new("UICorner")
             dropdowncorner.CornerRadius = UDim.new(0, 4)
@@ -417,9 +443,12 @@ function library:createwindow(title)
             label.TextSize = 13
             label.Font = Enum.Font.Gotham
             label.TextXAlignment = Enum.TextXAlignment.Left
+            label.TextScaled = false
+            label.ZIndex = 10
             label.Parent = dropdown
             
             local selected = options[1] or "None"
+            local isopen = false
             
             local button = Instance.new("TextButton")
             button.Size = UDim2.new(0, 90, 0, 25)
@@ -431,14 +460,81 @@ function library:createwindow(title)
             button.TextSize = 12
             button.Font = Enum.Font.Gotham
             button.AutoButtonColor = false
+            button.TextScaled = false
+            button.ZIndex = 10
             button.Parent = dropdown
             
             local buttoncorner = Instance.new("UICorner")
             buttoncorner.CornerRadius = UDim.new(0, 4)
             buttoncorner.Parent = button
             
+            local optionsframe = Instance.new("Frame")
+            optionsframe.Size = UDim2.new(0, 90, 0, 0)
+            optionsframe.Position = UDim2.new(1, -100, 1, 5)
+            optionsframe.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+            optionsframe.BorderSizePixel = 0
+            optionsframe.Visible = false
+            optionsframe.ZIndex = 15
+            optionsframe.Parent = dropdown
+            
+            local optionscorner = Instance.new("UICorner")
+            optionscorner.CornerRadius = UDim.new(0, 4)
+            optionscorner.Parent = optionsframe
+            
+            local optionslayout = Instance.new("UIListLayout")
+            optionslayout.SortOrder = Enum.SortOrder.LayoutOrder
+            optionslayout.Padding = UDim.new(0, 2)
+            optionslayout.Parent = optionsframe
+            
+            local optionspadding = Instance.new("UIPadding")
+            optionspadding.PaddingTop = UDim.new(0, 3)
+            optionspadding.PaddingBottom = UDim.new(0, 3)
+            optionspadding.PaddingLeft = UDim.new(0, 3)
+            optionspadding.PaddingRight = UDim.new(0, 3)
+            optionspadding.Parent = optionsframe
+            
+            for i, option in ipairs(options) do
+                local optionbutton = Instance.new("TextButton")
+                optionbutton.Size = UDim2.new(1, 0, 0, 25)
+                optionbutton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+                optionbutton.BorderSizePixel = 0
+                optionbutton.Text = option
+                optionbutton.TextColor3 = Color3.fromRGB(255, 255, 255)
+                optionbutton.TextSize = 12
+                optionbutton.Font = Enum.Font.Gotham
+                optionbutton.AutoButtonColor = false
+                optionbutton.TextScaled = false
+                optionbutton.ZIndex = 15
+                optionbutton.Parent = optionsframe
+                
+                local optioncorner = Instance.new("UICorner")
+                optioncorner.CornerRadius = UDim.new(0, 3)
+                optioncorner.Parent = optionbutton
+                
+                optionbutton.MouseEnter:Connect(function()
+                    optionbutton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+                end)
+                
+                optionbutton.MouseLeave:Connect(function()
+                    optionbutton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+                end)
+                
+                optionbutton.MouseButton1Click:Connect(function()
+                    selected = option
+                    button.Text = selected
+                    optionsframe.Visible = false
+                    isopen = false
+                    pcall(callback, selected)
+                end)
+            end
+            
+            optionslayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+                optionsframe.Size = UDim2.new(0, 90, 0, optionslayout.AbsoluteContentSize.Y + 6)
+            end)
+            
             button.MouseButton1Click:Connect(function()
-                pcall(callback, selected)
+                isopen = not isopen
+                optionsframe.Visible = isopen
             end)
             
             return dropdown
