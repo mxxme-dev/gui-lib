@@ -756,6 +756,7 @@ function library:createwindow(title, configId)
             
             local function updateToggle(newState)
                 state = newState
+                -- Update config element state
                 if windowobj.configElements[self.name] and windowobj.configElements[self.name][text] then
                     windowobj.configElements[self.name][text].state = newState
                 end
@@ -777,6 +778,7 @@ function library:createwindow(title, configId)
                 state = state,
                 set = updateToggle
             }
+            
             return toggle
         end
         
@@ -858,6 +860,7 @@ function library:createwindow(title, configId)
             
             local function updateSliderValue(newValue)
                 value = newValue
+                -- Update config element value
                 if windowobj.configElements[self.name] and windowobj.configElements[self.name][text] then
                     windowobj.configElements[self.name][text].value = newValue
                 end
@@ -880,13 +883,13 @@ function library:createwindow(title, configId)
                 updateSlider({Position = Vector2.new(mouse.X, mouse.Y)})
             end)
             
-            game:GetService("UserInputService").InputChanged:Connect(function(input)
+            UserInputService.InputChanged:Connect(function(input)
                 if sliderdragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
                     updateSlider(input)
                 end
             end)
             
-            game:GetService("UserInputService").InputEnded:Connect(function(input)
+            UserInputService.InputEnded:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                     sliderdragging = false
                 end
@@ -1043,6 +1046,7 @@ function library:createwindow(title, configId)
             
             local function updateDropdownValue(newValue)
                 selected = newValue
+                -- Update config element selected value
                 if windowobj.configElements[self.name] and windowobj.configElements[self.name][text] then
                     windowobj.configElements[self.name][text].selected = newValue
                 end
@@ -1090,10 +1094,12 @@ function library:createwindow(title, configId)
                 optionsframe.CanvasSize = UDim2.new(0, 0, 0, contentSize)
             end)
             
-                local maxHeight = 150
-                optionsframe.Size = UDim2.new(0, 90, 0, math.min(contentSize, maxHeight))
-                optionsframe.CanvasSize = UDim2.new(0, 0, 0, contentSize)
-            end)
+
+            windowobj.configElements[self.name][text] = {
+                type = "dropdown",
+                selected = selected,
+                set = updateDropdownValue
+            }
             
 
             local dropdownObj = {
@@ -1119,13 +1125,6 @@ function library:createwindow(title, configId)
             table.insert(windowobj.themeElements, {type = "tertiary", obj = dropdown})
             table.insert(windowobj.themeElements, {type = "text", obj = label})
             table.insert(windowobj.themeElements, {type = "hover", obj = button})
-            
-
-            windowobj.configElements[self.name][text] = {
-                type = "dropdown",
-                selected = selected,
-                set = updateDropdownValue
-            }
             
             return dropdown
         end
@@ -1153,7 +1152,7 @@ function library:createwindow(title, configId)
     end)
     
 
-    -- Key Capture Button (replaces the dropdown at line 1148)
+    -- KEY CAPTURE BUTTON (REPLACES DROPDOWN)
     local keybindFrame = Instance.new("Frame")
     keybindFrame.Name = "Toggle Key Keybind"
     keybindFrame.Size = UDim2.new(1, 0, 0, 35)
@@ -1206,7 +1205,7 @@ function library:createwindow(title, configId)
             keyConnection:Disconnect()
         end
         
-        keyConnection = game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+        keyConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
             -- Ignore left click and scroll
             if input.UserInputType == Enum.UserInputType.MouseButton1 then
                 return
