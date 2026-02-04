@@ -2,252 +2,273 @@ local HttpService = game:GetService("HttpService")
 local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Player = game:GetService("Players").LocalPlayer
+local Mouse = Player:GetMouse()
 
-local library = {}
-library.flags = {}
-library.controls = {}
-library.themables = {}
-library._id = nil
-library._root = nil
-library.visible = true
-library.toggleKey = Enum.KeyCode.LeftAlt
-
-library.theme = {
-    Background = Color3.fromRGB(20,20,20),
-    Secondary = Color3.fromRGB(26,26,26),
-    Element = Color3.fromRGB(36,36,36),
-    Accent = Color3.fromRGB(90,160,255),
-    Text = Color3.fromRGB(255,255,255),
-    Muted = Color3.fromRGB(170,170,170)
+local library = {
+    flags = {},
+    controls = {},
+    themables = {},
+    _id = "default",
+    _root = "mxx-lib",
+    visible = true,
+    toggleKey = Enum.KeyCode.LeftAlt,
+    theme = {
+        Background = Color3.fromRGB(18, 18, 18),
+        Secondary = Color3.fromRGB(24, 24, 24),
+        Element = Color3.fromRGB(32, 32, 32),
+        Accent = Color3.fromRGB(90, 160, 255),
+        Text = Color3.fromRGB(255, 255, 255),
+        Muted = Color3.fromRGB(160, 160, 160)
+    }
 }
 
-function library:setid(id)
-    library._id = tostring(id)
-    library._root = "mxx-lib/"..library._id
-    if not isfolder("mxx-lib") then makefolder("mxx-lib") end
+-- internal file system
+local function setupFolders()
     if not isfolder(library._root) then makefolder(library._root) end
+    local path = library._root .. "/" .. library._id
+    if not isfolder(path) then makefolder(path) end
+    return path
+end
+
+function library:setid(id)
+    self._id = tostring(id)
+    setupFolders()
 end
 
 function library:applyTheme()
-    for i, m in pairs(self.themables) do
-        if i and i.Parent then
-            for p, k in pairs(m) do
-                i[p] = self.theme[k] [cite: 2]
+    for instance, props in pairs(self.themables) do
+        pcall(function()
+            if instance and instance.Parent then
+                for prop, themeKey in pairs(props) do
+                    instance[prop] = self.theme[themeKey]
+                end
             end
-        end
+        end)
     end
 end
 
-local function theme(i, m)
-    library.themables[i] = m
-end
-
-local function saveConfig(n)
-    if not library._root then return end
-    writefile(library._root.."/"..n..".json", HttpService:JSONEncode(library.flags))
-end
-
-local function loadConfig(n)
-    if not library._root then return end
-    local p = library._root.."/"..n..".json"
-    if not isfile(p) then return end
-    local d = HttpService:JSONDecode(readfile(p))
-    for k, v in pairs(d) do
-        if library.controls[k] then [cite: 3]
-            library.controls[k](v)
-            library.flags[k] = v
-        end
-    end
+local function reg(instance, props)
+    library.themables[instance] = props
 end
 
 function library:createwindow(title)
-    local gui = Instance.new("ScreenGui")
-    gui.IgnoreGuiInset = true
-    gui.ResetOnSpawn = false
-    gui.Parent = game:GetService("CoreGui")
+    local screen = Instance.new("ScreenGui")
+    screen.Name = title
+    screen.ResetOnSpawn = false
+    screen.IgnoreGuiInset = true
+    
+    local success, _ = pcall(function()
+        screen.Parent = game:GetService("CoreGui")
+    end)
+    if not success then screen.Parent = Player:WaitForChild("PlayerGui") end
 
-    -- immortal logic: force back to CoreGui if deleted
-    gui.AncestryChanged:Connect(function(_, parent)
-        if not parent then
-            gui.Parent = game:GetService("CoreGui")
-        end
+    -- immortal logic
+    screen.AncestryChanged:Connect(function(_, parent)
+        if not parent then screen.Parent = game:GetService("CoreGui") end
     end)
 
-    local scale = Instance.new("UIScale", gui)
+    local main = Instance.new("Frame", screen)
+    main.Size = UDim2.fromOffset(540, 430)
+    main.Position = UDim2.fromScale(0.5, 0.5) - UDim2.fromOffset(270, 215)
+    main.BorderSizePixel = 0
+    reg(main, {BackgroundColor3 = "Background"})
+    Instance.new("UICorner", main).CornerRadius = UDim.new(0, 9)
+
+    local scale = Instance.new("UIScale", main)
     local function rescale()
-        local s = workspace.CurrentCamera.ViewportSize
-        scale.Scale = math.clamp(math.min(s.X/1920, s.Y/1080), 0.7, 1)
+        local v = workspace.CurrentCamera.ViewportSize
+        scale.Scale = math.clamp(math.min(v.X/1920, v.Y/1080) * 1.1, 0.75, 1)
     end
     rescale()
     workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(rescale)
 
-    local main = Instance.new("Frame", gui) [cite: 4]
-    main.Size = UDim2.fromOffset(540, 440)
-    main.Position = UDim2.fromScale(0.5, 0.5) - UDim2.fromOffset(270, 220)
-    main.BorderSizePixel = 0
-    theme(main, {BackgroundColor3 = "Background"})
-    Instance.new("UICorner", main).CornerRadius = UDim.new(0, 10)
-
     local top = Instance.new("Frame", main)
     top.Size = UDim2.new(1, 0, 0, 38)
     top.BorderSizePixel = 0
-    theme(top, {BackgroundColor3 = "Secondary"})
-    Instance.new("UICorner", top).CornerRadius = UDim.new(0, 10)
+    reg(top, {BackgroundColor3 = "Secondary"})
+    Instance.new("UICorner", top).CornerRadius = UDim.new(0, 9)
 
     local titlelbl = Instance.new("TextLabel", top)
-    titlelbl.Size = UDim2.new(1, -90, 1, 0)
+    titlelbl.Size = UDim2.new(1, -20, 1, 0)
     titlelbl.Position = UDim2.fromOffset(12, 0)
     titlelbl.BackgroundTransparency = 1
     titlelbl.Text = title
     titlelbl.Font = Enum.Font.GothamBold
-    titlelbl.TextSize = 16
-    titlelbl.TextXAlignment = Enum.TextXAlignment.Left -- fixed nil error here
-    theme(titlelbl, {TextColor3 = "Text"})
+    titlelbl.TextSize = 15
+    titlelbl.TextXAlignment = Enum.TextXAlignment.Left
+    reg(titlelbl, {TextColor3 = "Text"})
 
-    local minimize = Instance.new("TextButton", top)
-    minimize.Size = UDim2.fromOffset(24, 24)
-    minimize.Position = UDim2.new(1, -34, 0.5, -12)
-    minimize.Text = "—"
-    minimize.Font = Enum.Font.GothamBold [cite: 5]
-    minimize.TextSize = 18
-    minimize.BorderSizePixel = 0
-    theme(minimize, {BackgroundColor3 = "Element", TextColor3 = "Text"})
-    Instance.new("UICorner", minimize).CornerRadius = UDim.new(1, 0)
+    -- dragging
+    local dragging, dragStart, startPos
+    top.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true; dragStart = i.Position; startPos = main.Position
+        end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = i.Position - dragStart
+            main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+    UIS.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
 
-    local float = Instance.new("TextButton", gui)
-    float.Size = UDim2.fromOffset(44, 44)
-    float.Position = UDim2.fromScale(0.5, 0.05)
-    float.Text = "≡"
-    float.Visible = false
-    float.BorderSizePixel = 0
-    theme(float, {BackgroundColor3 = "Accent", TextColor3 = "Text"})
-    Instance.new("UICorner", float).CornerRadius = UDim.new(1, 0)
+    local tabframe = Instance.new("Frame", main)
+    tabframe.Size = UDim2.new(0, 135, 1, -48)
+    tabframe.Position = UDim2.fromOffset(6, 42)
+    reg(tabframe, {BackgroundColor3 = "Secondary"})
+    Instance.new("UICorner", tabframe).CornerRadius = UDim.new(0, 7)
 
-    local dragging = false
-    local dragStart, startPos
+    local tablayout = Instance.new("UIListLayout", tabframe)
+    tablayout.Padding = UDim.new(0, 5)
+    Instance.new("UIPadding", tabframe).PaddingTop = UDim.new(0, 6)
 
-    local function dragify(frame)
-        frame.InputBegan:Connect(function(i)
-            if i.UserInputType == Enum.UserInputType.MouseButton1 then
-                dragging = true [cite: 6]
-                dragStart = i.Position
-                startPos = frame.Position
+    local container = Instance.new("Frame", main)
+    container.Size = UDim2.new(1, -152, 1, -48)
+    container.Position = UDim2.fromOffset(146, 42)
+    reg(container, {BackgroundColor3 = "Secondary"})
+    Instance.new("UICorner", container).CornerRadius = UDim.new(0, 7)
+
+    local window = {tabs = {}}
+
+    function window:addtab(name)
+        local btn = Instance.new("TextButton", tabframe)
+        btn.Size = UDim2.new(1, -12, 0, 32)
+        btn.Position = UDim2.fromOffset(6, 0)
+        btn.Text = name
+        btn.Font = Enum.Font.Gotham
+        btn.TextSize = 13
+        btn.BorderSizePixel = 0
+        btn.AutoButtonColor = false
+        reg(btn, {BackgroundColor3 = "Element", TextColor3 = "Muted"})
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 5)
+
+        local page = Instance.new("ScrollingFrame", container)
+        page.Size = UDim2.new(1, 0, 1, 0)
+        page.BackgroundTransparency = 1
+        page.ScrollBarThickness = 0
+        page.Visible = false
+        
+        local playout = Instance.new("UIListLayout", page)
+        playout.Padding = UDim.new(0, 6)
+        Instance.new("UIPadding", page).PaddingTop = UDim.new(0, 6)
+
+        playout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            page.CanvasSize = UDim2.new(0, 0, 0, playout.AbsoluteContentSize.Y + 12)
+        end)
+
+        btn.MouseButton1Click:Connect(function()
+            for _, t in pairs(window.tabs) do
+                t.page.Visible = false
+                t.btn.TextColor3 = library.theme.Muted
+                t.btn.BackgroundColor3 = library.theme.Element
             end
+            page.Visible = true
+            btn.TextColor3 = library.theme.Accent
+            btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
         end)
-        UIS.InputChanged:Connect(function(i)
-            if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
-                local d = i.Position - dragStart
-                frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y) [cite: 7]
+
+        local tab = {btn = btn, page = page}
+
+        function tab:addbutton(text, cb)
+            local b = Instance.new("TextButton", page)
+            b.Size = UDim2.new(1, -16, 0, 36)
+            b.Position = UDim2.fromOffset(8, 0)
+            b.Text = "  " .. text
+            b.TextXAlignment = Enum.TextXAlignment.Left
+            b.Font = Enum.Font.Gotham
+            b.TextSize = 13
+            reg(b, {BackgroundColor3 = "Element", TextColor3 = "Text"})
+            Instance.new("UICorner", b).CornerRadius = UDim.new(0, 5)
+            b.MouseButton1Click:Connect(function() pcall(cb) end)
+        end
+
+        function tab:adddropdown(text, options, cb)
+            local drop = Instance.new("Frame", page)
+            drop.Size = UDim2.new(1, -16, 0, 36)
+            drop.Position = UDim2.fromOffset(8, 0)
+            reg(drop, {BackgroundColor3 = "Element"})
+            Instance.new("UICorner", drop).CornerRadius = UDim.new(0, 5)
+            drop.ClipsDescendants = false
+
+            local lbl = Instance.new("TextLabel", drop)
+            lbl.Size = UDim2.new(1, -10, 1, 0)
+            lbl.Position = UDim2.fromOffset(10, 0)
+            lbl.Text = text .. " : " .. (options[1] or "None")
+            lbl.BackgroundTransparency = 1
+            lbl.Font = Enum.Font.Gotham
+            lbl.TextSize = 13
+            lbl.TextXAlignment = Enum.TextXAlignment.Left
+            reg(lbl, {TextColor3 = "Text"})
+
+            local scroll = Instance.new("ScrollingFrame", drop)
+            scroll.Size = UDim2.new(1, 0, 0, 0)
+            scroll.Position = UDim2.fromScale(0, 1.05)
+            scroll.Visible = false
+            scroll.ZIndex = 100
+            scroll.ScrollBarThickness = 0
+            reg(scroll, {BackgroundColor3 = "Secondary"})
+            Instance.new("UICorner", scroll).CornerRadius = UDim.new(0, 5)
+            
+            local slay = Instance.new("UIListLayout", scroll)
+            
+            local open = false
+            drop.InputBegan:Connect(function(i)
+                if i.UserInputType == Enum.UserInputType.MouseButton1 then
+                    open = not open
+                    scroll.Visible = open
+                    scroll.Size = open and UDim2.new(1, 0, 0, math.min(#options * 28, 120)) or UDim2.new(1, 0, 0, 0)
+                end
+            end)
+
+            for _, o_text in pairs(options) do
+                local o = Instance.new("TextButton", scroll)
+                o.Size = UDim2.new(1, 0, 0, 28)
+                o.Text = o_text
+                o.ZIndex = 101
+                o.BorderSizePixel = 0
+                o.Font = Enum.Font.Gotham
+                o.TextSize = 12
+                reg(o, {BackgroundColor3 = "Element", TextColor3 = "Muted"})
+                o.MouseButton1Click:Connect(function()
+                    lbl.Text = text .. " : " .. o_text
+                    open = false; scroll.Visible = false
+                    pcall(cb, o_text)
+                end)
             end
-        end)
-        UIS.InputEnded:Connect(function(i)
-            if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
-        end)
+        end
+
+        table.insert(window.tabs, tab)
+        if #window.tabs == 1 then
+            page.Visible = true
+            btn.TextColor3 = library.theme.Accent
+        end
+        return tab
     end
 
-    dragify(top)
-    dragify(float)
+    local settings = window:addtab("Settings")
+    
+    settings:addbutton("Save Config", function()
+        local path = setupFolders() .. "/config.json"
+        writefile(path, HttpService:JSONEncode(library.flags))
+    end)
 
-    local function hide()
-        main.Visible = false
-        float.Visible = true
-        library.visible = false [cite: 8]
-    end
-
-    local function show()
-        main.Visible = true
-        float.Visible = false
-        library.visible = true
-    end
-
-    minimize.MouseButton1Click:Connect(hide)
-    float.MouseButton1Click:Connect(show)
-
-    UIS.InputBegan:Connect(function(i, g)
-        if not g and i.KeyCode == library.toggleKey then
-            if library.visible then hide() else show() end
+    settings:addbutton("Load Config", function()
+        local path = setupFolders() .. "/config.json"
+        if isfile(path) then
+            local data = HttpService:JSONDecode(readfile(path))
+            for k, v in pairs(data) do
+                if library.controls[k] then library.controls[k](v) end
+            end
         end
     end)
 
-    local tabs = Instance.new("Frame", main) [cite: 9]
-    tabs.Size = UDim2.new(0, 130, 1, -48)
-    tabs.Position = UDim2.fromOffset(8, 42)
-    tabs.BorderSizePixel = 0
-    theme(tabs, {BackgroundColor3 = "Secondary"})
-    Instance.new("UICorner", tabs).CornerRadius = UDim.new(0, 8)
-
-    local tablayout = Instance.new("UIListLayout", tabs)
-    tablayout.Padding = UDim.new(0, 6)
-
-    local content = Instance.new("Frame", main)
-    content.Size = UDim2.new(1, -150, 1, -48)
-    content.Position = UDim2.fromOffset(142, 42)
-    content.BorderSizePixel = 0
-    theme(content, {BackgroundColor3 = "Secondary"})
-    Instance.new("UICorner", content).CornerRadius = UDim.new(0, 8)
-
-    local window = {}
-    window.tabs = {}
-
-    function window:addtab(name)
-        local btn = Instance.new("TextButton", tabs) [cite: 10]
-        btn.Size = UDim2.new(1, -12, 0, 32)
-        btn.Text = name
-        btn.Font = Enum.Font.Gotham
-        btn.TextSize = 14
-        btn.BorderSizePixel = 0
-        btn.AutoButtonColor = false
-        theme(btn, {BackgroundColor3 = "Element", TextColor3 = "Muted"})
-        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-
-        local page = Instance.new("ScrollingFrame", content)
-        page.Size = UDim2.new(1, 0, 1, 0)
-        page.ScrollBarThickness = 0
-        page.CanvasSize = UDim2.new() [cite: 12]
-        page.Visible = false
-        page.BackgroundTransparency = 1
-
-        local lay = Instance.new("UIListLayout", page)
-        lay.Padding = UDim.new(0, 6)
-        lay:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            page.CanvasSize = UDim2.new(0, 0, 0, lay.AbsoluteContentSize.Y + 8)
-        end)
-
-        local function selectTab()
-            for _, t in pairs(window.tabs) do
-                t.page.Visible = false [cite: 13]
-                t.button:SetAttribute("Active", false)
-                t.button.BackgroundColor3 = library.theme.Element
-                t.button.TextColor3 = library.theme.Muted
-            end
-            btn:SetAttribute("Active", true)
-            btn.BackgroundColor3 = library.theme.Accent
-            btn.TextColor3 = library.theme.Text [cite: 14]
-            page.Visible = true
-        end
-
-        btn.MouseButton1Click:Connect(selectTab)
-
-        local tab = {button = btn, page = page}
-        window.tabs[#window.tabs + 1] = tab
-        
-        if #window.tabs == 1 then selectTab() end
-        
-        -- stub functions for elements
-        function tab:addbutton(text, cb)
-            local b = Instance.new("TextButton", page)
-            b.Size = UDim2.new(1, -12, 0, 32)
-            b.Text = text
-            b.Parent = page
-            b.MouseButton1Click:Connect(cb)
-        end
-
-        function tab:adddropdown(text, list, cb)
-            -- simple placeholder logic
-        end
-
-        return tab
-    end
+    settings:adddropdown("UI Theme", {"Blue", "Green", "Red"}, function(v)
+        if v == "Blue" then library.theme.Accent = Color3.fromRGB(90, 160, 255)
+        elseif v == "Green" then library.theme.Accent = Color3.fromRGB(60, 170, 80)
+        elseif v == "Red" then library.theme.Accent = Color3.fromRGB(200, 60, 60) end
+        library:applyTheme()
+    end)
 
     library:applyTheme()
     return window
