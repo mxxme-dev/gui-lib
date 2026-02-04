@@ -87,10 +87,9 @@ end
 local function winLogic(targetTeamName)
     local lp = game.Players.LocalPlayer
     if not lp.Team or lp.Team.Name:lower() == targetTeamName:lower() then 
-        window.notify("Error", "You are not on the correct team to use this!", 2, "error")
+        window.notify("Error", "Check your team!", 2, "error")
         return 
     end
-
     local oldPos = lp.Character.HumanoidRootPart.CFrame
     local function getTargets()
         local targets = {}
@@ -101,8 +100,6 @@ local function winLogic(targetTeamName)
         end
         return targets
     end
-    
-    window.notify("System", "Starting " .. targetTeamName .. " cleanup...", 2, "info")
     repeat
         local targets = getTargets()
         if #targets == 0 then break end
@@ -114,10 +111,9 @@ local function winLogic(targetTeamName)
         end
         task.wait(1.5)
     until #getTargets() == 0
-    
     local ms = getMapSpawn()
     tp(ms and ms.CFrame or oldPos)
-    window.notify("System", "All " .. targetTeamName .. "s eliminated!", 3, "success")
+    window.notify("System", "Barts cleared", 3, "success")
 end
 
 visualsTab:addtoggle("ESP All", false, function(state) espSettings.All = state end)
@@ -127,7 +123,7 @@ visualsTab:addtoggle("ESP Bart Team", false, function(state) espSettings.Bart = 
 visualsTab:addtoggle("Use Team Color", false, function(state) espSettings.TeamColor = state end)
 
 teleportTab:addbutton("Lobby", goLobby)
-teleportTab:addbutton("Current Map Spawn", function() 
+teleportTab:addbutton("Map Spawn", function() 
     local s = getMapSpawn()
     if s then tp(s.CFrame + Vector3.new(0, 3, 0)) end
 end)
@@ -151,29 +147,19 @@ bartTab:addtoggle("Auto Lobby on Bart", false, function(state) bartAutoLobby = s
 game.Players.LocalPlayer:GetPropertyChangedSignal("Team"):Connect(function()
     local team = game.Players.LocalPlayer.Team
     if bartAutoLobby and team and team.Name == "Bart" then
-        window.notify("Bart", "Auto-teleporting to Lobby", 2, "info")
         goLobby()
     end
 end)
 
-perfTab:addtoggle("Disable Rendering", false, function(state)
-    game:GetService("RunService"):Set3dRenderingEnabled(not state)
-end)
-
+perfTab:addtoggle("Disable Rendering", false, function(state) game:GetService("RunService"):Set3dRenderingEnabled(not state) end)
 perfTab:addtoggle("Disable Textures", false, function(state)
-    for _, v in pairs(game:GetDescendants()) do
-        if v:IsA("Texture") or v:IsA("Decal") then v.Transparency = state and 1 or 0 end
-    end
+    for _, v in pairs(game:GetDescendants()) do if v:IsA("Texture") or v:IsA("Decal") then v.Transparency = state and 1 or 0 end end
 end)
-
 perfTab:addtoggle("Disable Meshes", false, function(state)
     for _, v in pairs(game:GetDescendants()) do
         if v:IsA("MeshPart") or v:IsA("SpecialMesh") then
-            if state then
-                if v:IsA("MeshPart") then v.Transparency = 1 else v.MeshId = "" end
-            else
-                if v:IsA("MeshPart") then v.Transparency = 0 end
-            end
+            if state then if v:IsA("MeshPart") then v.Transparency = 1 else v.MeshId = "" end
+            else if v:IsA("MeshPart") then v.Transparency = 0 end end
         end
     end
 end)
@@ -182,34 +168,29 @@ miscTab:addslider("Walk Speed", 16, 200, 16, function(v)
     local char = game.Players.LocalPlayer.Character
     if char and char:FindFirstChild("Humanoid") then char.Humanoid.WalkSpeed = v end
 end)
-
 miscTab:addslider("Jump Power", 50, 300, 50, function(v)
     local char = game.Players.LocalPlayer.Character
-    if char and char:FindFirstChild("Humanoid") then 
-        char.Humanoid.UseJumpPower = true
-        char.Humanoid.JumpPower = v 
-    end
+    if char and char:FindFirstChild("Humanoid") then char.Humanoid.UseJumpPower = true char.Humanoid.JumpPower = v end
 end)
 
-miscTab:addbutton("Rejoin", function()
-    game:GetService("TeleportService"):Teleport(game.PlaceId, game.Players.LocalPlayer)
-end)
+miscTab:addbutton("Rejoin", function() game:GetService("TeleportService"):Teleport(game.PlaceId, game.Players.LocalPlayer) end)
 
 miscTab:addbutton("Server Hop", function()
     local Http = game:GetService("HttpService")
     local TPS = game:GetService("TeleportService")
     local Api = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Desc&limit=100"
-    local function Next()
-        local res = game:HttpGet(Api)
+    local function Hop()
+        local success, res = pcall(function() return game:HttpGet(Api) end)
+        if not success then return end
         local data = Http:JSONDecode(res)
         for _, s in pairs(data.data) do
-            if s.playing < s.maxPlayers and s.id ~= game.JobId then
+            if s.playing and s.maxPlayers and s.playing < s.maxPlayers and s.id ~= game.JobId then
                 TPS:TeleportToPlaceInstance(game.PlaceId, s.id, game.Players.LocalPlayer)
-                break
+                return
             end
         end
     end
-    Next()
+    Hop()
 end)
 
 miscTab:addtoggle("Mod Detector", false, function(state) 
