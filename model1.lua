@@ -756,6 +756,9 @@ function library:createwindow(title, configId)
             
             local function updateToggle(newState)
                 state = newState
+                if windowobj.configElements[self.name] and windowobj.configElements[self.name][text] then
+                    windowobj.configElements[self.name][text].state = newState
+                end
                 togglebutton.BackgroundColor3 = state and currentTheme.accent or Color3.fromRGB(60, 60, 60)
                 indicator:TweenPosition(state and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.2, true)
                 pcall(callback, state)
@@ -774,7 +777,6 @@ function library:createwindow(title, configId)
                 state = state,
                 set = updateToggle
             }
-            
             return toggle
         end
         
@@ -856,6 +858,9 @@ function library:createwindow(title, configId)
             
             local function updateSliderValue(newValue)
                 value = newValue
+                if windowobj.configElements[self.name] and windowobj.configElements[self.name][text] then
+                    windowobj.configElements[self.name][text].value = newValue
+                end
                 local percent = (value - min) / (max - min)
                 fill.Size = UDim2.new(percent, 0, 1, 0)
                 handle.Position = UDim2.new(percent, -6, 0.5, -6)
@@ -1038,6 +1043,9 @@ function library:createwindow(title, configId)
             
             local function updateDropdownValue(newValue)
                 selected = newValue
+                if windowobj.configElements[self.name] and windowobj.configElements[self.name][text] then
+                    windowobj.configElements[self.name][text].selected = newValue
+                end
                 button.Text = selected
                 closeDropdown()
                 pcall(callback, selected)
@@ -1082,6 +1090,20 @@ function library:createwindow(title, configId)
                 optionsframe.CanvasSize = UDim2.new(0, 0, 0, contentSize)
             end)
             
+                local maxHeight = 150
+                optionsframe.Size = UDim2.new(0, 90, 0, math.min(contentSize, maxHeight))
+                optionsframe.CanvasSize = UDim2.new(0, 0, 0, contentSize)
+            end)
+            
+
+            local dropdownObj = {
+                close = closeDropdown,
+                element = dropdown
+            }
+            
+
+            table.insert(self.dropdowns, dropdownObj)
+            
             button.MouseButton1Click:Connect(function()
 
                 for _, otherDropdown in ipairs(self.dropdowns) do
@@ -1104,15 +1126,6 @@ function library:createwindow(title, configId)
                 selected = selected,
                 set = updateDropdownValue
             }
-            
-
-            local dropdownObj = {
-                close = closeDropdown,
-                element = dropdown
-            }
-            
-
-            table.insert(self.dropdowns, dropdownObj)
             
             return dropdown
         end
@@ -1140,10 +1153,88 @@ function library:createwindow(title, configId)
     end)
     
 
-    settingsTab:adddropdown("Toggle Key", {"LeftAlt", "RightAlt", "LeftControl", "RightControl", "LeftShift", "RightShift", "Insert", "Delete", "End", "Home"}, function(selected)
-        windowobj.toggleKey = Enum.KeyCode[selected]
-        createNotification("Keybind Changed", "Toggle key set to " .. selected, 2, "info")
+    -- Key Capture Button (replaces the dropdown at line 1148)
+    local keybindFrame = Instance.new("Frame")
+    keybindFrame.Name = "Toggle Key Keybind"
+    keybindFrame.Size = UDim2.new(1, 0, 0, 35)
+    keybindFrame.BackgroundColor3 = currentTheme.tertiary
+    keybindFrame.BorderSizePixel = 0
+    keybindFrame.Parent = settingsTab.content
+    
+    local keybindCorner = Instance.new("UICorner")
+    keybindCorner.CornerRadius = UDim.new(0, 4)
+    keybindCorner.Parent = keybindFrame
+    
+    local keybindLabel = Instance.new("TextLabel")
+    keybindLabel.Size = UDim2.new(1, -100, 1, 0)
+    keybindLabel.Position = UDim2.new(0, 10, 0, 0)
+    keybindLabel.BackgroundTransparency = 1
+    keybindLabel.Text = "Toggle Key"
+    keybindLabel.TextColor3 = currentTheme.text
+    keybindLabel.TextSize = 13
+    keybindLabel.Font = Enum.Font.Gotham
+    keybindLabel.TextXAlignment = Enum.TextXAlignment.Left
+    keybindLabel.Parent = keybindFrame
+    
+    local keybindButton = Instance.new("TextButton")
+    keybindButton.Size = UDim2.new(0, 90, 0, 25)
+    keybindButton.Position = UDim2.new(1, -100, 0.5, -12.5)
+    keybindButton.BackgroundColor3 = currentTheme.hover
+    keybindButton.BorderSizePixel = 0
+    keybindButton.Text = "LeftAlt"
+    keybindButton.TextColor3 = currentTheme.text
+    keybindButton.TextSize = 12
+    keybindButton.Font = Enum.Font.Gotham
+    keybindButton.AutoButtonColor = false
+    keybindButton.Parent = keybindFrame
+    
+    local keybindButtonCorner = Instance.new("UICorner")
+    keybindButtonCorner.CornerRadius = UDim.new(0, 4)
+    keybindButtonCorner.Parent = keybindButton
+    
+    local listeningForKey = false
+    local keyConnection = nil
+    
+    keybindButton.MouseButton1Click:Connect(function()
+        if listeningForKey then return end
+        
+        listeningForKey = true
+        keybindButton.Text = "Press a key..."
+        keybindButton.BackgroundColor3 = currentTheme.accent
+        
+        if keyConnection then
+            keyConnection:Disconnect()
+        end
+        
+        keyConnection = game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+            -- Ignore left click and scroll
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                return
+            end
+            if input.UserInputType == Enum.UserInputType.MouseWheel then
+                return
+            end
+            
+            -- Only accept keyboard keys
+            if input.UserInputType == Enum.UserInputType.Keyboard then
+                local keyName = input.KeyCode.Name
+                windowobj.toggleKey = input.KeyCode
+                keybindButton.Text = keyName
+                keybindButton.BackgroundColor3 = currentTheme.hover
+                createNotification("Keybind Changed", "Toggle key set to " .. keyName, 2, "info")
+                
+                listeningForKey = false
+                if keyConnection then
+                    keyConnection:Disconnect()
+                    keyConnection = nil
+                end
+            end
+        end)
     end)
+    
+    table.insert(windowobj.themeElements, {type = "tertiary", obj = keybindFrame})
+    table.insert(windowobj.themeElements, {type = "text", obj = keybindLabel})
+    table.insert(windowobj.themeElements, {type = "hover", obj = keybindButton})
     
 
     local configNameInput = Instance.new("Frame")
