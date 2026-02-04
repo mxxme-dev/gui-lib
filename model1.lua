@@ -1,6 +1,133 @@
 local library = {}
 
--- Theme System
+
+local notificationQueue = {}
+local activeNotifications = {}
+
+local function createNotification(title, message, duration, notifType)
+    duration = duration or 3
+    notifType = notifType or "info"
+    
+    local colors = {
+        info = Color3.fromRGB(60, 130, 220),
+        success = Color3.fromRGB(60, 170, 80),
+        warning = Color3.fromRGB(220, 160, 60),
+        error = Color3.fromRGB(220, 60, 60)
+    }
+    
+    local notifColor = colors[notifType] or colors.info
+    
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "NotificationGui"
+    screenGui.ResetOnSpawn = false
+    screenGui.IgnoreGuiInset = true
+    screenGui.DisplayOrder = 999
+    
+    pcall(function()
+        screenGui.Parent = game:GetService("CoreGui")
+    end)
+    
+    if not screenGui.Parent then
+        screenGui.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+    end
+    
+    local notification = Instance.new("Frame")
+    notification.Name = "Notification"
+    notification.Size = UDim2.new(0, 300, 0, 80)
+    notification.Position = UDim2.new(1, 320, 0, 10 + (#activeNotifications * 90))
+    notification.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    notification.BorderSizePixel = 0
+    notification.Parent = screenGui
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = notification
+    
+    local accent = Instance.new("Frame")
+    accent.Name = "Accent"
+    accent.Size = UDim2.new(0, 4, 1, 0)
+    accent.Position = UDim2.new(0, 0, 0, 0)
+    accent.BackgroundColor3 = notifColor
+    accent.BorderSizePixel = 0
+    accent.Parent = notification
+    
+    local accentCorner = Instance.new("UICorner")
+    accentCorner.CornerRadius = UDim.new(0, 8)
+    accentCorner.Parent = accent
+    
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Name = "Title"
+    titleLabel.Size = UDim2.new(1, -20, 0, 25)
+    titleLabel.Position = UDim2.new(0, 15, 0, 8)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = title
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.TextSize = 14
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.TextScaled = false
+    titleLabel.Parent = notification
+    
+    local messageLabel = Instance.new("TextLabel")
+    messageLabel.Name = "Message"
+    messageLabel.Size = UDim2.new(1, -20, 1, -40)
+    messageLabel.Position = UDim2.new(0, 15, 0, 30)
+    messageLabel.BackgroundTransparency = 1
+    messageLabel.Text = message
+    messageLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    messageLabel.TextSize = 12
+    messageLabel.Font = Enum.Font.Gotham
+    messageLabel.TextXAlignment = Enum.TextXAlignment.Left
+    messageLabel.TextYAlignment = Enum.TextYAlignment.Top
+    messageLabel.TextWrapped = true
+    messageLabel.TextScaled = false
+    messageLabel.Parent = notification
+    
+    table.insert(activeNotifications, notification)
+    
+
+    notification:TweenPosition(
+        UDim2.new(1, -310, 0, 10 + ((#activeNotifications - 1) * 90)),
+        Enum.EasingDirection.Out,
+        Enum.EasingStyle.Quad,
+        0.3,
+        true
+    )
+    
+
+    task.delay(duration, function()
+        notification:TweenPosition(
+            UDim2.new(1, 320, 0, notification.Position.Y.Offset),
+            Enum.EasingDirection.In,
+            Enum.EasingStyle.Quad,
+            0.3,
+            true,
+            function()
+                for i, notif in ipairs(activeNotifications) do
+                    if notif == notification then
+                        table.remove(activeNotifications, i)
+                        break
+                    end
+                end
+                
+
+                for i, notif in ipairs(activeNotifications) do
+                    notif:TweenPosition(
+                        UDim2.new(1, -310, 0, 10 + ((i - 1) * 90)),
+                        Enum.EasingDirection.Out,
+                        Enum.EasingStyle.Quad,
+                        0.2,
+                        true
+                    )
+                end
+                
+                screenGui:Destroy()
+            end
+        )
+    end)
+end
+
+
 local themes = {
     Dark = {
         background = Color3.fromRGB(20, 20, 20),
@@ -50,7 +177,7 @@ local themes = {
 
 local currentTheme = themes.Dark
 
--- Config System
+
 local HttpService = game:GetService("HttpService")
 local configFolder = nil
 local configSaveName = "default"
@@ -253,7 +380,7 @@ function library:createwindow(title, configId)
     titletext.TextScaled = false
     titletext.Parent = titlebar
     
-    -- Minimize button
+
     local minimizeButton = Instance.new("TextButton")
     minimizeButton.Name = "MinimizeButton"
     minimizeButton.Size = UDim2.new(0, 30, 0, 25)
@@ -271,7 +398,7 @@ function library:createwindow(title, configId)
     minbuttoncorner.CornerRadius = UDim.new(0, 4)
     minbuttoncorner.Parent = minimizeButton
     
-    -- Floating button (hidden by default)
+
     local floatingButton = Instance.new("TextButton")
     floatingButton.Name = "FloatingButton"
     floatingButton.Size = UDim2.new(0, 50, 0, 50)
@@ -291,7 +418,7 @@ function library:createwindow(title, configId)
     floatcorner.CornerRadius = UDim.new(1, 0)
     floatcorner.Parent = floatingButton
     
-    -- Floating button drag
+
     local floatDragging = false
     local floatDragStart = nil
     local floatStartPos = nil
@@ -333,7 +460,7 @@ function library:createwindow(title, configId)
         floatingButton.Visible = false
     end)
     
-    -- Main dragging
+
     local dragging = false
     local dragStart = nil
     local startPos = nil
@@ -409,7 +536,7 @@ function library:createwindow(title, configId)
         toggleKey = Enum.KeyCode.LeftAlt
     }
     
-    -- Toggle GUI with keybind
+
     UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if not gameProcessed and input.KeyCode == windowobj.toggleKey then
             main.Visible = not main.Visible
@@ -424,7 +551,7 @@ function library:createwindow(title, configId)
     local function applyTheme(theme)
         currentTheme = theme
         
-        -- Update all theme elements
+
         for _, element in pairs(windowobj.themeElements) do
             if element.type == "background" then
                 element.obj.BackgroundColor3 = theme.background
@@ -448,7 +575,7 @@ function library:createwindow(title, configId)
         end
     end
     
-    -- Register theme elements
+
     table.insert(windowobj.themeElements, {type = "background", obj = main})
     table.insert(windowobj.themeElements, {type = "border", obj = titlebar})
     table.insert(windowobj.themeElements, {type = "text", obj = titletext})
@@ -506,23 +633,37 @@ function library:createwindow(title, configId)
                 othertab.button.BackgroundColor3 = currentTheme.tertiary
                 othertab.button.TextColor3 = currentTheme.textSecondary
                 othertab.content.Visible = false
+
+                if othertab.closeAllDropdowns then
+                    othertab.closeAllDropdowns()
+                end
             end
             tab.BackgroundColor3 = currentTheme.hover
             tab.TextColor3 = currentTheme.text
             tabcontent.Visible = true
         end)
         
-        -- Register for theme
+
         table.insert(windowobj.themeElements, {type = "tertiary", obj = tab})
         table.insert(windowobj.themeElements, {type = "textSecondary", obj = tab, isProp = "TextColor3"})
         
         local tabobj = {
             button = tab,
             content = tabcontent,
-            name = name
+            name = name,
+            dropdowns = {}
         }
         
-        -- Initialize config storage for this tab
+
+        function tabobj:closeAllDropdowns()
+            for _, dropdown in ipairs(self.dropdowns) do
+                if dropdown.close then
+                    dropdown.close()
+                end
+            end
+        end
+        
+
         if not windowobj.configElements[name] then
             windowobj.configElements[name] = {}
         end
@@ -627,7 +768,7 @@ function library:createwindow(title, configId)
             table.insert(windowobj.themeElements, {type = "tertiary", obj = toggle})
             table.insert(windowobj.themeElements, {type = "text", obj = label})
             
-            -- Store in config
+
             windowobj.configElements[self.name][text] = {
                 type = "toggle",
                 state = state,
@@ -752,7 +893,7 @@ function library:createwindow(title, configId)
             table.insert(windowobj.themeElements, {type = "slider", obj = trackbg})
             table.insert(windowobj.themeElements, {type = "accent", obj = fill})
             
-            -- Store in config
+
             windowobj.configElements[self.name][text] = {
                 type = "slider",
                 value = value,
@@ -861,7 +1002,7 @@ function library:createwindow(title, configId)
             buttoncorner.CornerRadius = UDim.new(0, 4)
             buttoncorner.Parent = button
             
-            -- Scrollable options frame
+
             local optionsframe = Instance.new("ScrollingFrame")
             optionsframe.Size = UDim2.new(0, 90, 0, 0)
             optionsframe.Position = UDim2.new(1, -100, 1, 5)
@@ -890,11 +1031,15 @@ function library:createwindow(title, configId)
             optionspadding.PaddingRight = UDim.new(0, 3)
             optionspadding.Parent = optionsframe
             
+            local function closeDropdown()
+                isopen = false
+                optionsframe.Visible = false
+            end
+            
             local function updateDropdownValue(newValue)
                 selected = newValue
                 button.Text = selected
-                optionsframe.Visible = false
-                isopen = false
+                closeDropdown()
                 pcall(callback, selected)
             end
             
@@ -938,6 +1083,13 @@ function library:createwindow(title, configId)
             end)
             
             button.MouseButton1Click:Connect(function()
+
+                for _, otherDropdown in ipairs(self.dropdowns) do
+                    if otherDropdown ~= dropdownObj and otherDropdown.close then
+                        otherDropdown.close()
+                    end
+                end
+                
                 isopen = not isopen
                 optionsframe.Visible = isopen
             end)
@@ -946,12 +1098,21 @@ function library:createwindow(title, configId)
             table.insert(windowobj.themeElements, {type = "text", obj = label})
             table.insert(windowobj.themeElements, {type = "hover", obj = button})
             
-            -- Store in config
+
             windowobj.configElements[self.name][text] = {
                 type = "dropdown",
                 selected = selected,
                 set = updateDropdownValue
             }
+            
+
+            local dropdownObj = {
+                close = closeDropdown,
+                element = dropdown
+            }
+            
+
+            table.insert(self.dropdowns, dropdownObj)
             
             return dropdown
         end
@@ -967,48 +1128,284 @@ function library:createwindow(title, configId)
         return tabobj
     end
     
-    -- Auto-create Settings tab
+
     local settingsTab = windowobj:addtab("Settings")
     
-    -- Theme selector
+
     settingsTab:adddropdown("Theme", {"Dark", "Blue", "Purple", "Red"}, function(selected)
         if themes[selected] then
             applyTheme(themes[selected])
+            createNotification("Theme Changed", "Applied " .. selected .. " theme", 2, "success")
         end
     end)
     
-    -- Toggle keybind selector
+
     settingsTab:adddropdown("Toggle Key", {"LeftAlt", "RightAlt", "LeftControl", "RightControl", "LeftShift", "RightShift", "Insert", "Delete", "End", "Home"}, function(selected)
         windowobj.toggleKey = Enum.KeyCode[selected]
+        createNotification("Keybind Changed", "Toggle key set to " .. selected, 2, "info")
     end)
     
-    -- Config management
+
+    local configNameInput = Instance.new("Frame")
+    configNameInput.Name = "ConfigNameInput"
+    configNameInput.Size = UDim2.new(1, 0, 0, 35)
+    configNameInput.BackgroundColor3 = currentTheme.tertiary
+    configNameInput.BorderSizePixel = 0
+    configNameInput.Parent = settingsTab.content
+    
+    local configInputCorner = Instance.new("UICorner")
+    configInputCorner.CornerRadius = UDim.new(0, 4)
+    configInputCorner.Parent = configNameInput
+    
+    local configInputLabel = Instance.new("TextLabel")
+    configInputLabel.Size = UDim2.new(0, 80, 1, 0)
+    configInputLabel.Position = UDim2.new(0, 10, 0, 0)
+    configInputLabel.BackgroundTransparency = 1
+    configInputLabel.Text = "Config Name"
+    configInputLabel.TextColor3 = currentTheme.text
+    configInputLabel.TextSize = 13
+    configInputLabel.Font = Enum.Font.Gotham
+    configInputLabel.TextXAlignment = Enum.TextXAlignment.Left
+    configInputLabel.Parent = configNameInput
+    
+    local configTextBox = Instance.new("TextBox")
+    configTextBox.Size = UDim2.new(1, -100, 0, 25)
+    configTextBox.Position = UDim2.new(0, 95, 0.5, -12.5)
+    configTextBox.BackgroundColor3 = currentTheme.hover
+    configTextBox.BorderSizePixel = 0
+    configTextBox.Text = configSaveName
+    configTextBox.TextColor3 = currentTheme.text
+    configTextBox.TextSize = 12
+    configTextBox.Font = Enum.Font.Gotham
+    configTextBox.PlaceholderText = "Enter config name"
+    configTextBox.PlaceholderColor3 = currentTheme.textSecondary
+    configTextBox.ClearTextOnFocus = false
+    configTextBox.Parent = configNameInput
+    
+    local configTextBoxCorner = Instance.new("UICorner")
+    configTextBoxCorner.CornerRadius = UDim.new(0, 4)
+    configTextBoxCorner.Parent = configTextBox
+    
+    configTextBox:GetPropertyChangedSignal("Text"):Connect(function()
+        configSaveName = configTextBox.Text:gsub("[^%w_-]", "")
+        if configSaveName == "" then
+            configSaveName = "default"
+        end
+        configTextBox.Text = configSaveName
+    end)
+    
+    table.insert(windowobj.themeElements, {type = "tertiary", obj = configNameInput})
+    table.insert(windowobj.themeElements, {type = "text", obj = configInputLabel})
+    table.insert(windowobj.themeElements, {type = "hover", obj = configTextBox})
+    
+
     settingsTab:addbutton("Save Config", function()
         saveConfig(windowobj, configSaveName)
+        createNotification("Config Saved", "Configuration '" .. configSaveName .. "' saved successfully", 3, "success")
+
+        task.wait(0.1)
+        if configDropdownRef and configDropdownRef.refresh then
+            configDropdownRef.refresh()
+        end
     end)
     
     settingsTab:addbutton("Load Config", function()
         loadConfig(windowobj, configSaveName)
+        createNotification("Config Loaded", "Configuration '" .. configSaveName .. "' loaded", 3, "success")
     end)
     
-    settingsTab:adddropdown("Select Config", getConfigList(), function(selected)
-        configSaveName = selected
+
+    local configDropdownRef = nil
+    
+
+    local configDropdown = Instance.new("Frame")
+    configDropdown.Name = "Select Config"
+    configDropdown.Size = UDim2.new(1, 0, 0, 35)
+    configDropdown.BackgroundColor3 = currentTheme.tertiary
+    configDropdown.BorderSizePixel = 0
+    configDropdown.Active = true
+    configDropdown.Parent = settingsTab.content
+    configDropdown.ClipsDescendants = false
+    configDropdown.ZIndex = 10
+    
+    local configDropdownCorner = Instance.new("UICorner")
+    configDropdownCorner.CornerRadius = UDim.new(0, 4)
+    configDropdownCorner.Parent = configDropdown
+    
+    local configDropdownLabel = Instance.new("TextLabel")
+    configDropdownLabel.Size = UDim2.new(1, -100, 1, 0)
+    configDropdownLabel.Position = UDim2.new(0, 10, 0, 0)
+    configDropdownLabel.BackgroundTransparency = 1
+    configDropdownLabel.Text = "Select Config"
+    configDropdownLabel.TextColor3 = currentTheme.text
+    configDropdownLabel.TextSize = 13
+    configDropdownLabel.Font = Enum.Font.Gotham
+    configDropdownLabel.TextXAlignment = Enum.TextXAlignment.Left
+    configDropdownLabel.ZIndex = 10
+    configDropdownLabel.Parent = configDropdown
+    
+    local configButton = Instance.new("TextButton")
+    configButton.Size = UDim2.new(0, 90, 0, 25)
+    configButton.Position = UDim2.new(1, -100, 0.5, -12.5)
+    configButton.BackgroundColor3 = currentTheme.hover
+    configButton.BorderSizePixel = 0
+    configButton.Text = configSaveName
+    configButton.TextColor3 = currentTheme.text
+    configButton.TextSize = 12
+    configButton.Font = Enum.Font.Gotham
+    configButton.AutoButtonColor = false
+    configButton.ZIndex = 10
+    configButton.Parent = configDropdown
+    
+    local configButtonCorner = Instance.new("UICorner")
+    configButtonCorner.CornerRadius = UDim.new(0, 4)
+    configButtonCorner.Parent = configButton
+    
+    local configOptionsFrame = Instance.new("ScrollingFrame")
+    configOptionsFrame.Size = UDim2.new(0, 90, 0, 0)
+    configOptionsFrame.Position = UDim2.new(1, -100, 1, 5)
+    configOptionsFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    configOptionsFrame.BorderSizePixel = 0
+    configOptionsFrame.Visible = false
+    configOptionsFrame.Active = true
+    configOptionsFrame.ZIndex = 15
+    configOptionsFrame.ScrollBarThickness = 0
+    configOptionsFrame.Parent = configDropdown
+    
+    local configOptionsCorner = Instance.new("UICorner")
+    configOptionsCorner.CornerRadius = UDim.new(0, 4)
+    configOptionsCorner.Parent = configOptionsFrame
+    
+    local configOptionsLayout = Instance.new("UIListLayout")
+    configOptionsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    configOptionsLayout.Padding = UDim.new(0, 2)
+    configOptionsLayout.Parent = configOptionsFrame
+    
+    local configOptionsPadding = Instance.new("UIPadding")
+    configOptionsPadding.PaddingTop = UDim.new(0, 3)
+    configOptionsPadding.PaddingBottom = UDim.new(0, 3)
+    configOptionsPadding.PaddingLeft = UDim.new(0, 3)
+    configOptionsPadding.PaddingRight = UDim.new(0, 3)
+    configOptionsPadding.Parent = configOptionsFrame
+    
+    local function refreshConfigDropdown()
+
+        for _, child in ipairs(configOptionsFrame:GetChildren()) do
+            if child:IsA("TextButton") then
+                child:Destroy()
+            end
+        end
+        
+
+        local configs = getConfigList()
+        if #configs == 0 then
+            configs = {"default"}
+        end
+        
+
+        for _, configName in ipairs(configs) do
+            local optionButton = Instance.new("TextButton")
+            optionButton.Size = UDim2.new(1, 0, 0, 25)
+            optionButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+            optionButton.BorderSizePixel = 0
+            optionButton.Text = configName
+            optionButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+            optionButton.TextSize = 12
+            optionButton.Font = Enum.Font.Gotham
+            optionButton.AutoButtonColor = false
+            optionButton.ZIndex = 15
+            optionButton.Parent = configOptionsFrame
+            
+            local optionCorner = Instance.new("UICorner")
+            optionCorner.CornerRadius = UDim.new(0, 3)
+            optionCorner.Parent = optionButton
+            
+            optionButton.MouseEnter:Connect(function()
+                optionButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+            end)
+            
+            optionButton.MouseLeave:Connect(function()
+                optionButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+            end)
+            
+            optionButton.MouseButton1Click:Connect(function()
+                configSaveName = configName
+                configButton.Text = configName
+                configTextBox.Text = configName
+                configOptionsFrame.Visible = false
+                createNotification("Config Selected", "Selected config: " .. configName, 2, "info")
+            end)
+        end
+        
+
+        configOptionsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            local contentSize = configOptionsLayout.AbsoluteContentSize.Y + 6
+            local maxHeight = 150
+            configOptionsFrame.Size = UDim2.new(0, 90, 0, math.min(contentSize, maxHeight))
+            configOptionsFrame.CanvasSize = UDim2.new(0, 0, 0, contentSize)
+        end)
+        
+
+        local contentSize = configOptionsLayout.AbsoluteContentSize.Y + 6
+        local maxHeight = 150
+        configOptionsFrame.Size = UDim2.new(0, 90, 0, math.min(contentSize, maxHeight))
+        configOptionsFrame.CanvasSize = UDim2.new(0, 0, 0, contentSize)
+    end
+    
+    configButton.MouseButton1Click:Connect(function()
+
+        if settingsTab.closeAllDropdowns then
+            settingsTab.closeAllDropdowns()
+        end
+        
+        configOptionsFrame.Visible = not configOptionsFrame.Visible
+        if configOptionsFrame.Visible then
+            refreshConfigDropdown()
+        end
     end)
+    
+
+    configDropdownRef = {
+        refresh = refreshConfigDropdown,
+        close = function()
+            configOptionsFrame.Visible = false
+        end
+    }
+    
+    table.insert(settingsTab.dropdowns, configDropdownRef)
+    table.insert(windowobj.themeElements, {type = "tertiary", obj = configDropdown})
+    table.insert(windowobj.themeElements, {type = "text", obj = configDropdownLabel})
+    table.insert(windowobj.themeElements, {type = "hover", obj = configButton})
+    
+
+    refreshConfigDropdown()
     
     settingsTab:addbutton("Delete Config", function()
         if configSaveName ~= "default" then
             deleteConfig(configSaveName)
+            createNotification("Config Deleted", "Configuration '" .. configSaveName .. "' deleted", 3, "warning")
             configSaveName = "default"
+            configTextBox.Text = "default"
+            configButton.Text = "default"
+
+            task.wait(0.1)
+            if configDropdownRef and configDropdownRef.refresh then
+                configDropdownRef.refresh()
+            end
         else
-            warn("[MXX-LIB] Cannot delete default config")
+            createNotification("Cannot Delete", "Cannot delete default config", 3, "error")
         end
     end)
     
     settingsTab:addtoggle("Auto Load Config", false, function(state)
         if state then
             loadConfig(windowobj, configSaveName)
+            createNotification("Auto Load Enabled", "Config will auto-load on startup", 2, "info")
         end
     end)
+    
+
+    windowobj.notify = createNotification
     
     return windowobj
 end
