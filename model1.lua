@@ -880,13 +880,13 @@ function library:createwindow(title, configId)
                 updateSlider({Position = Vector2.new(mouse.X, mouse.Y)})
             end)
             
-            UserInputService.InputChanged:Connect(function(input)
+            game:GetService("UserInputService").InputChanged:Connect(function(input)
                 if sliderdragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
                     updateSlider(input)
                 end
             end)
             
-            UserInputService.InputEnded:Connect(function(input)
+            game:GetService("UserInputService").InputEnded:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                     sliderdragging = false
                 end
