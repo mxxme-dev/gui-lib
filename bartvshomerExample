@@ -146,7 +146,6 @@ homerTab:addtoggle("AutoWin", false, function(state)
     end
 end)
 
-bartTab:addbutton("Win (Target Homer)", function() winLogic("Homer") end)
 bartTab:addtoggle("Auto Lobby on Bart", false, function(state) bartAutoLobby = state end)
 
 game.Players.LocalPlayer:GetPropertyChangedSignal("Team"):Connect(function()
