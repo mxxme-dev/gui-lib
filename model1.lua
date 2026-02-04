@@ -635,7 +635,7 @@ function library:createwindow(title, configId)
                 othertab.content.Visible = false
 
                 if othertab.closeAllDropdowns then
-                    othertab.closeAllDropdowns()
+                    othertab:closeAllDropdowns()
                 end
             end
             tab.BackgroundColor3 = currentTheme.hover
@@ -1355,7 +1355,7 @@ function library:createwindow(title, configId)
     configButton.MouseButton1Click:Connect(function()
 
         if settingsTab.closeAllDropdowns then
-            settingsTab.closeAllDropdowns()
+            settingsTab:closeAllDropdowns()
         end
         
         configOptionsFrame.Visible = not configOptionsFrame.Visible
